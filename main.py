@@ -20,16 +20,38 @@ clock = pygame.time.Clock()
 # сетка
 grid = [pygame.Rect(x * TILE, y * TILE, TILE, TILE) for x in range(WEIGHT) for y in range(HEIGHT)]
 
-# координаты плиток фигур
-figures_pos = [[(-1, 0), (-2, 0), (0, 0), (1, 0)],
-               [(0, -1), (-1, -1), (-1, 0), (0, 0)],
-               [(-1, 0), (-1, 1), (0, 0), (0, -1)],
-               [(0, 0), (-1, 0), (0, 1), (-1, -1)],
-               [(0, 0), (0, -1), (0, 1), (-1, -1)],
-               [(0, 0), (0, -1), (0, 1), (1, -1)],
-               [(0, 0), (0, -1), (0, 1), (-1, 0)]]
 
-figures = [[pygame.Rect(x + WEIGHT // 2, y + 1, 1, 1) for x, y in fig_pos] for fig_pos in figures_pos]
+class Figure:
+    FIGURE_TYPE = [
+        'I', 'O', 'Z', 'S', 'L', 'J', 'T',
+    ]
+
+    FIGURE_POS = {
+        'I': [(-1, 0), (-2, 0), (0, 0), (1, 0)],
+        'O': [(0, -1), (-1, -1), (-1, 0), (0, 0)],
+        'Z': [(-1, 0), (-1, 1), (0, 0), (0, -1)],
+        'S': [(0, 0), (-1, 0), (0, 1), (-1, -1)],
+        'L': [(0, 0), (0, -1), (0, 1), (-1, -1)],
+        'J': [(0, 0), (0, -1), (0, 1), (1, -1)],
+        'T': [(0, 0), (0, -1), (0, 1), (-1, 0)],
+    }
+
+    FIGURE_COLOR = {
+        'I': (0, 93, 106),
+        'O': (255, 255, 102),
+        'Z': (255, 102, 102),
+        'S': (153, 255, 153),
+        'L': (255, 178, 102),
+        'J': (102, 178, 255),
+        'T': (178, 102, 255),
+    }
+
+    def __init__(self):
+        self.type = choice(self.FIGURE_TYPE)
+        self.color = self.FIGURE_COLOR[self.type]
+        self.figure_pos = [pygame.Rect(x + WEIGHT // 2, y + 1, 1, 1) for x, y in self.FIGURE_POS[self.type]]
+
+
 figure_rect = pygame.Rect(0, 0, TILE - 2, TILE - 2)
 # игровое поле
 field = [[0 for i in range(WEIGHT)] for j in range(HEIGHT)]
@@ -39,21 +61,21 @@ anim_count, anim_speed, anim_limit = 0, 50, 2000
 
 lines = 0
 
-figure = deepcopy(choice(figures))
+figure = Figure()
+# следующая фигура
+next_figure = Figure()
 
 score, lines = 0, 0
 scores = {0: 0, 1: 100, 2: 300, 3: 700, 4: 1500}
 
-
 # проверка не выхода фигуры за границы
 def check_border():
-    if figure[i].x < 0 or figure[i].x > WEIGHT - 1:
+    if figure.figure_pos[i].x < 0 or figure.figure_pos[i].x > WEIGHT - 1:
         return False
-    elif figure[i].y > HEIGHT - 1 or field[figure[i].y][figure[i].x]:
+    elif figure.figure_pos[i].y > HEIGHT - 1 or field[figure.figure_pos[i].y][figure.figure_pos[i].x]:
         pygame.time.wait(200)  # задержка
         return False
     return True
-
 
 while True:
     dx, rotate = 0, False
@@ -71,19 +93,20 @@ while True:
             if event.key == pygame.K_UP:
                 rotate = True
 
-    # условие остановки игры
+
+    # # условие остановки игры
     if (
-            field[figure[0].y][figure[0].x]
-            or field[figure[1].y][figure[1].x]
-            or field[figure[2].y][figure[2].x]
-            or field[figure[3].y][figure[3].x]
+            field[figure.figure_pos[0].y][figure.figure_pos[0].x]
+            or field[figure.figure_pos[1].y][figure.figure_pos[1].x]
+            or field[figure.figure_pos[2].y][figure.figure_pos[2].x]
+            or field[figure.figure_pos[3].y][figure.figure_pos[3].x]
     ):
         exit()
 
     # движение по x
     figure_old = deepcopy(figure)
     for i in range(4):
-        figure[i].x += dx
+        figure.figure_pos[i].x += dx
         if not check_border():
             figure = deepcopy(figure_old)
             break
@@ -94,29 +117,30 @@ while True:
         anim_count = 0
         figure_old = deepcopy(figure)
         for i in range(4):
-            figure[i].y += 1
+            figure.figure_pos[i].y += 1
             if not check_border():
                 for i in range(4):
-                    field[figure_old[i].y][figure_old[i].x] = pygame.Color('white')
+                    field[figure_old.figure_pos[i].y][figure_old.figure_pos[i].x] = figure.color
                 # создание новой фигуры
-                figure = deepcopy(choice(figures))
+                figure = next_figure
+                next_figure = Figure()
                 anim_limit = 2000
                 break
 
     # поворот
-    center = figure[0]
+    center = figure.figure_pos[0]
     figure_old = deepcopy(figure)
     if rotate:
         for i in range(4):
-            x = figure[i].y - center.y
-            y = figure[i].x - center.x
-            figure[i].x = center.x - x
-            figure[i].y = center.y + y
+            x = figure.figure_pos[i].y - center.y
+            y = figure.figure_pos[i].x - center.x
+            figure.figure_pos[i].x = center.x - x
+            figure.figure_pos[i].y = center.y + y
             if not check_border():
                 figure = deepcopy(figure_old)
                 break
 
-    # check lines
+    # проверка
     line, lines = HEIGHT - 1, 0
     for row in range(HEIGHT - 1, -1, -1):
         count = 0
@@ -127,7 +151,7 @@ while True:
         if count < WEIGHT:
             line -= 1
         else:
-            anim_speed += 3
+            anim_speed += 10
             lines += 1
 
     # score
@@ -138,9 +162,9 @@ while True:
 
     # построение фигуры
     for i in range(4):
-        figure_rect.x = figure[i].x * TILE
-        figure_rect.y = figure[i].y * TILE
-        pygame.draw.rect(game_sc, pygame.Color('white'), figure_rect)
+        figure_rect.x = figure.figure_pos[i].x * TILE
+        figure_rect.y = figure.figure_pos[i].y * TILE
+        pygame.draw.rect(game_sc, figure.color, figure_rect)
 
     # построение поля
     for y, raw in enumerate(field):
@@ -152,6 +176,12 @@ while True:
     game_sc.blit(label_tetris, (485, -10))
     game_sc.blit(label_scores, (485, 100))
     game_sc.blit(myfont_score.render(str(score), True, pygame.Color('white')), (650, 100))
+
+    # # draw next figure
+    for i in range(4):
+        figure_rect.x = next_figure.figure_pos[i].x * TILE + 380
+        figure_rect.y = next_figure.figure_pos[i].y * TILE + 185
+        pygame.draw.rect(game_sc, next_figure.color, figure_rect)
 
     pygame.display.flip()
     clock.tick(FPS)
